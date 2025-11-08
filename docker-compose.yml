@@ -1,0 +1,151 @@
+# Docker Compose for Local Development
+# Start all services: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # =====================================================================
+  # Main API Service
+  # =====================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql://vizuser:vizpass@postgres:5432/visualization_db
+      - REDIS_URL=redis://redis:6379/0
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - EXECUTOR_TYPE=subprocess
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./:/app
+      - /tmp/visualizations:/tmp/visualizations
+    networks:
+      - viz-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =====================================================================
+  # PostgreSQL Database
+  # =====================================================================
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=vizuser
+      - POSTGRES_PASSWORD=vizpass
+      - POSTGRES_DB=visualization_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - viz-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vizuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================================
+  # Redis Cache & State Store
+  # =====================================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - viz-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================================
+  # Optional: pgAdmin for Database Management
+  # =====================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - viz-network
+
+  # =====================================================================
+  # Optional: Redis Commander for Cache Inspection
+  # =====================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - viz-network
+
+  # =====================================================================
+  # Optional: Jupyter Notebook for Development
+  # =====================================================================
+  jupyter:
+    image: jupyter/minimal-notebook:latest
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./main.py:/home/jovyan/main.py
+      - ./api.py:/home/jovyan/api.py
+    networks:
+      - viz-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  viz-network:
+    driver: bridge
+
+# =====================================================================
+# Usage Commands
+# =====================================================================
+# Start all services:
+#   docker-compose up -d
+#
+# View logs:
+#   docker-compose logs -f api
+#
+# Stop services:
+#   docker-compose down
+#
+# Remove volumes (reset data):
+#   docker-compose down -v
+#
+# Access services:
+#   API: http://localhost:8000
+#   Swagger Docs: http://localhost:8000/docs
+#   pgAdmin: http://localhost:5050 (admin@example.com / admin)
+#   Redis Commander: http://localhost:8081
+#   Jupyter: http://localhost:8888
