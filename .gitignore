@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDEs / Editors
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*         # .env.local, .env.production etc.
+.env.example   # Optional if you want to keep template - remove if you don't
+
+# Logs and runtime
+*.log
+pids/
+*.pid
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Misc
+*.sqlite3
